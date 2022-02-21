@@ -91,9 +91,9 @@ else:
 ###########################################################################################################
 ##               DONATIONS                                                                               ##
 ##                                                                                                       ##
-##   BTC: bc1qvflsvddkmxh7eqhc4jyu5z5k6xcw3ay8jl49sk                                                     ##
-##   ETH (ERC20): 0x83D3cFb8001BDC5d2211cBeBB8cB3461E5f7Ec91                                             ##
-##   BEP20/BSC (USDT, ETH, BNB, ...): 0x86A0B21a20b39d16424B7c8003E4A7e12d78ABEe                         ##
+##   BTC: bc1qx70vkyf3c4ve63rc4sl5plqqygpw9lqrg6vhcx                                                     ##
+##   ETH (ERC20): 0x029290c564Ef921c56a784AA16C97E930dAF7372                                             ##
+##   BEP20/BSC (USDT, ETH, BNB, ...): 0x029290c564Ef921c56a784AA16C97E930dAF7372                         ##
 ##   TRC20/TRON (USDT, TRON, ...): TTAa9MX6zMLXNgWMhg7tkNormVHWCoq8Xk                                    ##
 ##                                                                                                       ##
 ##               REFERRAL LINKS                                                                          ##
@@ -110,7 +110,7 @@ class NostalgiaForInfinityX(IStrategy):
     INTERFACE_VERSION = 2
 
     def version(self) -> str:
-        return "v11.0.266"
+        return "v11.0.265"
 
     # ROI table:
     minimal_roi = {
@@ -126,6 +126,8 @@ class NostalgiaForInfinityX(IStrategy):
     trailing_stop_positive_offset = 0.03
 
     use_custom_stoploss = False
+
+    custom_info = {}
 
     # Optimal timeframe for the strategy.
     timeframe = '5m'
@@ -2293,6 +2295,10 @@ class NostalgiaForInfinityX(IStrategy):
         else:
             return proposed_stake
 
+    def calc_profit_ratio2(self, open_rate: float, current_rate: float): ->float
+        return  float(( Decimal(1-self.fee_close)* Decimal(current_rate) )/
+            (Decimal(1+self.fee_open)* Decimal(open_rate) )-1)
+
     def adjust_trade_position(self, trade: Trade, current_time: datetime,
                               current_rate: float, current_profit: float, min_stake: float,
                               max_stake: float, **kwargs):
@@ -2373,7 +2379,15 @@ class NostalgiaForInfinityX(IStrategy):
                 return stake_amount
             except Exception as exception:
                 return None
-
+        max_profit2=self.custom_info.get(metadata["pair"],0)
+        last_buy_order = filled_buys[-1]
+        last_open_rate = last_buy_order.average or last_buy_order.price
+        current_profit2=calc_profit_ratio2(last_open_rate, current_rate)
+        if max_profit2<current_profit2: self.custom_info[metadata["pair"]]=current_profit2
+        if max_profit2-current_profit2>.005-0.0025*(count_of_buys-2) and current_profit2 > 0:
+            self.custom_info[metadata["pair"]]=0
+            last_stake_amt=last_buy_order.amount
+            return last_stake_amt
         return None
 
     def sell_signals(self, current_profit: float, max_profit:float, max_loss:float, last_candle, previous_candle_1, previous_candle_2, previous_candle_3, previous_candle_4, previous_candle_5, trade: 'Trade', current_time: 'datetime', buy_tag) -> tuple:
@@ -2480,7 +2494,7 @@ class NostalgiaForInfinityX(IStrategy):
                 and (last_candle['sma_200_dec_24'])
                 and (current_time - timedelta(minutes=9200) > trade.open_date_utc)
                 # temporary
-                and (trade.open_date_utc + timedelta(minutes=34000) > current_time)
+                and (trade.open_date_utc + timedelta(minutes=32000) > current_time)
         ):
             return True, 'sell_stoploss_u_e_2'
 
